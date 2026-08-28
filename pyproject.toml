@@ -1,7 +1,19 @@
+[build-system]
+# Numpy is needed for the include path
+requires = ["setuptools>=61.0.0", "numpy>=2.5.2"]
+
 [project]
 name = "quadr"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "numpy>=2.5.2",
+    "opencv-python>=5.0.0.93",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
