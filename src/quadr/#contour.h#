@@ -1,0 +1,31 @@
+#pragma once
+
+#include "kernel.h"
+
+#include <stdio.h>
+
+struct Point2d {
+    float x, y;
+};
+struct Contour {
+    size_t start;
+    size_t end;
+};
+#define MAX_CONTOURS 100
+// This is a contour allocator, it keeps track of contours from a substrate
+struct Contours {
+    // points
+    size_t points_capacity;
+    size_t points_length;
+    struct Point2d* points;
+    
+
+    // contours
+    size_t contours_length;
+    struct Contour contours[MAX_CONTOURS];
+};
+void Contours_initFromSubstrate(struct Substrate const *substrate,
+    struct Contours* contours);
+void Contours_findContoursInSubstrate(struct Contours* contours,
+    struct Substrate const* substrate);
+void Contours_deinit(struct Contours* contours);

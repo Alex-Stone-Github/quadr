@@ -2,7 +2,11 @@ from setuptools import setup, Extension
 import numpy
 
 quadr = Extension("quadr",
-                  sources = ["src/quadrmod.c"],
+                  sources = [
+                      "src/quadr/quadrmod.c",
+                      "src/quadr/kernel.c",
+                      "src/quadr/contour.c",
+                  ],
                   include_dirs=[numpy.get_include()])
 
 setup(
