@@ -1,5 +1,6 @@
 #include "contour.h"
 #include "kernel.h"
+#include "square.h"
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
@@ -67,20 +68,26 @@ static PyObject* quadr_takeInNumpy(PyObject *self, PyObject *args) {
     }
     printf("Convolution finished!\n");
 
-    Contours_findContoursInSubstrate(&contours, &dst);
+    Contours_findContoursConsumeSubstrate(&contours, &dst);
     printf("We have %ld points in the dest image!\n", contours.points_length);
-    Contours_deinit(&contours);
+
+    // Contours_deinit(&contours); // Purposefully leak and construct an array out of
+    Substrate_deinit(&dst); 
+    Substrate_deinit(&src); 
+
+    // BTW lets find some squares
+    printf("Finding squares\n");
+    struct Squares squares;
+    Squares_initFromContours(&contours, &squares);
 
     printf("Converting to np array for return!\n");
-    int view_ndims = 2;
-    npy_intp view_dims[2] = {dst.height, dst.width};
-    PyObject* substrate_view = PyArray_SimpleNewFromData(view_ndims, view_dims,
-        NPY_FLOAT32, (void*)dst.data);
-
-    //Substrate_deinit(&src);  Purposefully leak because we are returning the array
+    int view_ndims = 3;
+    npy_intp view_dims[3] = {squares.squares_length, 4, 2};
+    PyObject* contours_view = PyArray_SimpleNewFromData(view_ndims, view_dims,
+        NPY_FLOAT32, (void*)squares.squres);
 
 
-    return substrate_view;
+    return contours_view;
 }
 
 static PyObject* my_module_add(PyObject* self, PyObject* args) {

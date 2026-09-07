@@ -4,11 +4,11 @@
 #include <stdbool.h>
 
 
-struct Kernel const edge_detection_kernel = {
+struct Kernel const edge_detection_kernel = {{
     0.0, 1.0, 0.0,
     1.0, -4.0, 1.0,
     0.0, 1.0, 0.0,
-};
+    }};
 float Kernel_getItem(struct Kernel const *kernel, ssize_t offx, ssize_t offy) {
     ssize_t xi = 1 + offx;
     ssize_t yi = 1 + offy;
@@ -50,8 +50,7 @@ void Substrate_updateBitmap(struct Substrate *substrate,
 }
 float* Substrate_getPixel(struct Substrate* substrate, size_t x, size_t y) {
     size_t index = substrate->width * y + x;
-    size_t pixel_count = substrate->width * substrate->height;
-    assert(index < pixel_count);
+    assert(index < substrate->width * substrate->height);
     return &substrate->data[index];
 }
 void Substrate_deinit(struct Substrate *substrate) {
@@ -88,8 +87,6 @@ void convolute(struct Substrate const *src, struct Substrate *dst,
     for (size_t x = 1; x < dst->width - 1; x++) {
         for (size_t y = 1; y < dst->height - 1; y++) {
             float new_value = convoluteSample(src, kernel, x, y);
-            float test = (float)(x % 100) / 100.0f;
-            //*Substrate_getPixel(dst, x - 1, y - 1) = test;
             *Substrate_getPixel(dst, x - 1, y - 1) = new_value;
         }
     }

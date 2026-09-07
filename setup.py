@@ -6,6 +6,7 @@ quadr = Extension("quadr",
                       "src/quadr/quadrmod.c",
                       "src/quadr/kernel.c",
                       "src/quadr/contour.c",
+                      "src/quadr/square.c",
                   ],
                   include_dirs=[numpy.get_include()])
 

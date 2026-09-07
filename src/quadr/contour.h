@@ -3,21 +3,30 @@
 #include "kernel.h"
 
 #include <stdio.h>
+#include <stdbool.h>
 
 struct Point2d {
     float x, y;
 };
 struct Contour {
+    // Includes index of start and end exc
     size_t start;
-    size_t end;
+    size_t count;
+    bool is_closed;
 };
-#define MAX_CONTOURS 100
+struct ContourPointMeta {
+    float ds;
+    float theta;
+    float thetadot;
+};
+#define MAX_CONTOURS 500
 // This is a contour allocator, it keeps track of contours from a substrate
 struct Contours {
     // points
     size_t points_capacity;
     size_t points_length;
     struct Point2d* points;
+    struct ContourPointMeta* points_changes;
 
     // contours
     size_t contours_length;
@@ -25,6 +34,7 @@ struct Contours {
 };
 void Contours_initFromSubstrate(struct Substrate const *substrate,
     struct Contours* contours);
-void Contours_findContoursInSubstrate(struct Contours* contours,
+void Contours_findContoursConsumeSubstrate(struct Contours* contours,
     struct Substrate const* substrate);
 void Contours_deinit(struct Contours* contours);
+
