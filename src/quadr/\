@@ -6,9 +6,8 @@
 #include <math.h>
 #include <stdbool.h>
 
-#define RADIUS_SQ 200.0f
+#define RADIUS_SQ 50.0f
 #define MIN_CONTOUR_LENGTH 30
-#define MAX_CONTOUR_LENGTH 10000 // 40kib
 
 static float distanceSample(struct Contours const *contours,
                             struct Contour const* contour, size_t pi) {
@@ -34,33 +33,13 @@ void Squares_initFromContours(struct Contours const* contours,
     squares->corners_length = 0;
     for (size_t ci = 0; ci < contours->contours_length; ci++) {
         puts("Beginning Contour ----------------------");
-        struct Contour const* contour = &contours->contours[ci];
+        struct Contour* contour = &contours->contours[ci];
         if (contour->count < MIN_CONTOUR_LENGTH) continue;
-        if (contour->count > MAX_CONTOUR_LENGTH) continue;
-        if (!contour->is_closed) continue;
-        float distances[MAX_CONTOUR_LENGTH];
         for (size_t pi = contour->start; pi - contour->start < contour->count;
             pi++) {
-            size_t li = pi - 1;
-            while (li < contour->start) li += contour->count;
-            size_t ni = contour->start +
-                (pi - contour->start + 1) % contour->count;
-            float last_dist = distanceSample(contours, contour, li);
-            float current_dist = distanceSample(contours, contour, pi);
-            float next_dist = distanceSample(contours, contour, ni);
-            bool meets_thresh = current_dist < 10.0f;
-            bool valley = last_dist >= current_dist &&
-                next_dist > current_dist;
-            printf("This is the avg dist %f %d\n", current_dist, valley);
-            if (valley & meets_thresh) {
-                printf("This is also a valley so we are adding it as a corner!\n");
-                memcpy(&squares->corners[squares->corners_length++],
-                        &contours->points[pi], sizeof(struct Point2d));
-            }
+            float average_dist = distanceSample(contours, contour, pi);
+            printf("This is the avg dist %f\n", average_dist);
         }
-        struct Point2d exemplar = {0.0f, 0.0f};
-        memcpy(&squares->corners[squares->corners_length++],
-                &exemplar, sizeof exemplar);
         puts("Ending Contour ----------------------");
     }
 }

@@ -2,12 +2,19 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <math.h>
+#include <memory.h>
 
 
 struct Kernel const edge_detection_kernel = {{
     0.0, 1.0, 0.0,
     1.0, -4.0, 1.0,
     0.0, 1.0, 0.0,
+    }};
+struct Kernel const edge_erosion_kernel = {{
+    1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0,
     }};
 float Kernel_getItem(struct Kernel const *kernel, ssize_t offx, ssize_t offy) {
     ssize_t xi = 1 + offx;
@@ -22,6 +29,10 @@ void Substrate_init(size_t width, size_t height, struct Substrate *substrate) {
     substrate->height = height;
     substrate->data = calloc(width * height, sizeof(float));
     assert(substrate->data); // We ran out of memory
+}
+void Substrate_copyFrom(struct Substrate* self, struct Substrate const* other) {
+    assert(self->width == other->width);
+    memcpy(self->data, other->data, self->width * self->height * sizeof(float));
 }
 void Substrate_updateBitmap(struct Substrate *substrate,
                             struct BitmapInfo const *bitmap_info) {
@@ -55,6 +66,57 @@ float* Substrate_getPixel(struct Substrate* substrate, size_t x, size_t y) {
 }
 void Substrate_deinit(struct Substrate *substrate) {
     free(substrate->data);
+}
+void Substrate_skeletonizeX(struct Substrate *substrate) {
+    for (size_t y = 0; y < substrate->height; y++) {
+        bool prev_active = false;
+        for (size_t x = 0; x < substrate->width; x++) {
+            float* current_pix_val = Substrate_getPixel(substrate, x, y);
+            bool current_active = *current_pix_val == 1.0f;
+
+            // If there are two pixels active in a row, make the current one
+            // inactive
+            if (prev_active && current_active) {
+                *current_pix_val = 0.0f;
+            }
+
+            prev_active = current_active;
+        }
+    }
+}
+void Substrate_skeletonizeY(struct Substrate* substrate) {
+    for (size_t x = 0; x < substrate->width; x++) {
+        bool prev_active = false;
+        for (size_t y = 0; y < substrate->height; y++) {
+            float* current_pix_val = Substrate_getPixel(substrate, x, y);
+            bool current_active = *current_pix_val == 1.0f;
+
+            // If there are two pixels active in a row, make the current one
+            // inactive
+            if (prev_active && current_active) {
+                *current_pix_val = 0.0f;
+            }
+
+            prev_active = current_active;
+        }
+    }
+}
+void Substrate_or(struct Substrate *dest, struct Substrate *a,
+                   struct Substrate *b) {
+    assert(dest->width == a->width && a->width == b->width);
+    assert(dest->height == a->height && a->height == b->height);
+    size_t length = dest->width * dest->height;
+    for (size_t i = 0; i < length; i++) {
+        bool x1 = a->data[i] == 1.0f;
+        bool x2 = b->data[i] == 1.0f;
+        float out = (x1 || x2)? 1.0f : 0.0f;
+        dest->data[i] = out;
+    }
+}
+void Substrate_stepPixels(struct Substrate* substrate, float dist) {
+    for (size_t i = 0; i < substrate->width * substrate->height; i++) {
+        substrate->data[i] = (fabs(substrate->data[i]) > dist) ? 1.0f : 0.0f;
+    }
 }
 
 static float convoluteSample(struct Substrate const *src,

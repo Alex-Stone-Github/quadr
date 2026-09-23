@@ -9,8 +9,7 @@
 #include <math.h>
 #include <float.h>
 
-#define THETA_LOOKAHEAD 5
-#define BRIDGE_DIST 2.0f
+#define BRIDGE_DIST 15.0f
 
 void Contours_initFromSubstrate(struct Substrate const *substrate,
                                 struct Contours *contours) {
@@ -18,8 +17,6 @@ void Contours_initFromSubstrate(struct Substrate const *substrate,
     size_t pixel_count = substrate->width * substrate->height;
     contours->points_capacity = pixel_count;
     contours->points = calloc(pixel_count, sizeof(struct Contour));
-    contours->points_changes = calloc(pixel_count,
-        sizeof(struct ContourPointMeta));
     contours->points_length = 0;
     contours->contours_length = 0;
 }
@@ -47,61 +44,11 @@ static size_t clampSize(ssize_t x, size_t width) {
     while (x >= (ssize_t)width) x -= width;
     return x;
 }
-static float distanceSqFlt(float ax, float ay, float bx, float by) {
+float distanceSqFlt(float ax, float ay, float bx, float by) {
     return powf(ax - bx, 2.0f) + powf(ay - by, 2.0f);
 }
 static float distanceSq(size_t ax, size_t ay, size_t bx, size_t by) {
     return distanceSqFlt((float)ax, (float)ay, (float)bx, (float)by);
-}
-struct ContoursPointIter {
-    struct Contours* contours;
-    size_t ci, pi;
-};
-struct ContoursPointIterIdxs {
-    size_t current;
-    size_t next;
-    size_t look;
-};
-void ContoursPointIter_init(struct ContoursPointIter *iter,
-    struct Contours* contours) {
-    iter->contours = contours;
-    iter->ci = 0;
-    iter->pi = 0;
-}
-bool ContoursPointIter_next(struct ContoursPointIter *iter,
-                            struct ContoursPointIterIdxs* idxs) {
-    // Resolve our current place
-    if (iter->pi - iter->contours->contours[iter->ci].start ==
-        iter->contours->contours[iter->ci].count) {
-        iter->ci ++;
-        iter->pi = iter->contours->contours[iter->ci].start;
-    }
-    if (iter->ci == iter->contours->contours_length) return false;
-    struct Contour* contour = &iter->contours->contours[iter->ci];
-
-    // Construct our current indexes
-    idxs->current = iter->pi;
-    idxs->next = contour->start +
-        ((iter->pi - contour->start + 1) % contour->count);
-    idxs->look = contour->start +
-        ((iter->pi - contour->start + THETA_LOOKAHEAD) % contour->count);
-
-    iter->pi ++;
-    return true;
-}
-/// Theroretically, I should only be using this function for x <= 10ish
-float smallSqrtApprox(float x) {
-    assert(x < 10.0f); // Too big x for approx to work
-    return sqrtf(x); // opt out
-    if (x <= 0) return 0.0f;
-
-    // Newtons method for approximation (4 iters)
-    float guess = 2.0f;
-    guess = 0.5f * (guess + (x / guess));
-    guess = 0.5f * (guess + (x / guess));
-    guess = 0.5f * (guess + (x / guess));
-    guess = 0.5f * (guess + (x / guess));
-    return guess;
 }
 void Contours_findContoursConsumeSubstrate(struct Contours *contours,
                                       struct Substrate const *substrate) {
@@ -145,8 +92,17 @@ void Contours_findContoursConsumeSubstrate(struct Contours *contours,
                 }
             }
             if (smallest_dist_sq == FLT_MAX) { // contour done
+                struct Point2d const *start_pt =
+                    &contours->points[contour_start];
+                struct Point2d const *end_pt =
+                    &contours->points[contours->points_length-1];
+                float return_dist = distanceSqFlt(start_pt->x, start_pt->y,
+                                                  end_pt->x, end_pt->y);
+                bool is_closed = return_dist < powf(BRIDGE_DIST, 2.0f);
                 struct Contour contour = {
-                    contour_start, contours->points_length - contour_start
+                  contour_start,
+                  contours->points_length - contour_start,
+                    is_closed
                 };
                 assert(contours->contours_length < MAX_CONTOURS);
                 memcpy(&contours->contours[contours->contours_length++],
@@ -162,50 +118,8 @@ void Contours_findContoursConsumeSubstrate(struct Contours *contours,
     }
     printf("We have a total of %ld points and %ld contours!\n",
         contours->points_length, contours->contours_length);
-
-    // Get distance squared and thetas
-    printf("Fa la la la la - making contour data and derivatives\n");
-    struct ContoursPointIter pointIter;
-    ContoursPointIter_init(&pointIter, contours);
-    struct ContoursPointIterIdxs idxs;
-    while (ContoursPointIter_next(&pointIter, &idxs)) {
-        float ds_sq = distanceSqFlt(contours->points[idxs.current].x,
-                                    contours->points[idxs.current].y,
-                                    contours->points[idxs.next].x,
-                                    contours->points[idxs.next].y
-                                    );
-        float ds = smallSqrtApprox(ds_sq);
-        if (ds == 0.0f) ds += 0.001f; // ignore zero problem
-        float look_dx = contours->points[idxs.look].x -
-            contours->points[idxs.current].x;
-        float look_dy = contours->points[idxs.look].y -
-            contours->points[idxs.current].y;
-        float look_theta = atan2f(look_dy, look_dx);
-        while (look_theta <= 0.0f) look_theta += 2.0f * M_PI;
-        //printf("%f, %f, %f, %f\n", look_dx, look_dy, look_o, look_theta);
-        // calculate theta beter
-
-        // Use an approximation for the sqrt to save time with large mtn of
-        contours->points_changes[idxs.current].ds = ds;
-        contours->points_changes[idxs.current].theta = look_theta;
-        // Classify them as closed or not too
-        if (idxs.current + 1 != idxs.next && ds <= BRIDGE_DIST)
-            contours->contours[pointIter.ci].is_closed = true;
-        else
-            contours->contours[pointIter.ci].is_closed = false;
-    }
-    // Take theta derivative
-    ContoursPointIter_init(&pointIter, contours);
-    while (ContoursPointIter_next(&pointIter, &idxs)) {
-        // Use a sqrt approximation to save time with large amnt of sqrts
-        float theta = contours->points_changes[idxs.current].theta; 
-        float theta_h = contours->points_changes[idxs.look].theta;
-        float ds = contours->points_changes[idxs.current].ds;
-        contours->points_changes[idxs.current].thetadot = (theta_h - theta)/ds;
-    }
 }
 
 void Contours_deinit(struct Contours *contours) {
     free(contours->points);
-    free(contours->points_changes);
 }

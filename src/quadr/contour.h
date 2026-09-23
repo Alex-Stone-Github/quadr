@@ -26,7 +26,7 @@ struct Contours {
     size_t points_capacity;
     size_t points_length;
     struct Point2d* points;
-    struct ContourPointMeta* points_changes;
+    //struct ContourPointMeta* points_changes;
 
     // contours
     size_t contours_length;
@@ -38,3 +38,4 @@ void Contours_findContoursConsumeSubstrate(struct Contours* contours,
     struct Substrate const* substrate);
 void Contours_deinit(struct Contours* contours);
 
+float distanceSqFlt(float ax, float ay, float bx, float by);

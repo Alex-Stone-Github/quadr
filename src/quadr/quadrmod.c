@@ -1,11 +1,23 @@
 #include "contour.h"
 #include "kernel.h"
+#include "numpy/ndarraytypes.h"
 #include "square.h"
+#include "tupleobject.h"
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <stdio.h>
+
+struct Color {double r, g, b;};
+static struct Color red = {255, 0, 0};
+static void drawPixel3(double *buffer, size_t w, size_t h, size_t x, size_t y,
+                      struct Color *color) {
+    assert(w > 0 && h > 0);
+    assert(x < w && y < h); // Make sure our sizes are valid
+    size_t index = 3 * (y * w + x);
+    memcpy(&buffer[index], color, 12);
+}
 
 static PyObject* quadr_takeInNumpy(PyObject *self, PyObject *args) {
     printf("We are receiving the array form c!\n");
@@ -47,47 +59,79 @@ static PyObject* quadr_takeInNumpy(PyObject *self, PyObject *args) {
     }
 
     // Create a bitmap info struct
-    struct Substrate src;
+    struct Substrate src, edges, skelx, skely, or, ret;
     Substrate_init(width, height, &src);
-    struct Substrate dst;
-    Substrate_init(width - 2, height - 2, &dst);
-    struct Contours contours;
-    Contours_initFromSubstrate(&src, &contours);
+    Substrate_init(width - 2, height - 2, &edges);
+    Substrate_init(width - 4, height - 4, &skelx);
+    Substrate_init(width - 4, height - 4, &skely);
+    Substrate_init(width - 4, height - 4, &or);
+    Substrate_init(width - 4, height - 4, &ret);
 
+    // Memcpy into the source
     npy_intp size = PyArray_SIZE(input_array);
     double* data = (double*)PyArray_DATA(input_array);
     struct BitmapInfo bitmap_info = {data, nchannels, size / nchannels};
     Substrate_updateBitmap(&src, &bitmap_info);
-
     printf("We have a substrate of (%ld, %ld)\n", src.width, src.height);
 
+    // Process the arrays
+    // TODO: Magic constants
+    float edge_thresh = 0.1f;
+    float erode_thresh = 0.1f;
     printf("Beginning convolution!\n");
-    convolute(&src, &dst, &edge_detection_kernel);
-    for (size_t i = 0; i < dst.width * dst.height; i++) {
-        dst.data[i] = dst.data[i] > 0.3f ? 1.0f : 0.0f;
-    }
+    convolute(&src, &edges, &edge_detection_kernel);
+    Substrate_stepPixels(&edges, edge_thresh);
+    convolute(&edges, &skelx, &edge_erosion_kernel);
+    Substrate_stepPixels(&skelx, erode_thresh);
+    // could be a copy instead from erode
+    Substrate_copyFrom(&skely, &skelx);
+    Substrate_skeletonizeX(&skelx);
+    Substrate_skeletonizeY(&skely);
+    Substrate_or(&or, &skelx, &skely);
+    Substrate_copyFrom(&ret, &or); // skely must have a bad input
     printf("Convolution finished!\n");
 
-    Contours_findContoursConsumeSubstrate(&contours, &dst);
-    printf("We have %ld points in the dest image!\n", contours.points_length);
-
-    // Contours_deinit(&contours); // Purposefully leak and construct an array out of
-    Substrate_deinit(&dst); 
-    Substrate_deinit(&src); 
-
-    // BTW lets find some squares
-    printf("Finding squares\n");
+    // Finding contours and squares
+    printf("We are finding contours now!\n");
+    struct Contours contours;
+    Contours_initFromSubstrate(&src, &contours);
+    Contours_findContoursConsumeSubstrate(&contours, &or);
+    printf("We have %ld points in the dest image and some contours!\n", contours.points_length);
+    printf("Finding squares form contours\n");
     struct Squares squares;
     Squares_initFromContours(&contours, &squares);
+    printf("We found some contours");
 
-    printf("Converting to np array for return!\n");
-    int view_ndims = 3;
-    npy_intp view_dims[3] = {squares.squares_length, 4, 2};
-    PyObject* contours_view = PyArray_SimpleNewFromData(view_ndims, view_dims,
-        NPY_FLOAT32, (void*)squares.squres);
+    // Memcpy out to a return numpy array
+    printf("Converting ret to np array for return!\n");
+    int view_ndims = 2;
+    npy_intp view_dims[2] = {ret.height, ret.width};
+    PyObject* ret_view = PyArray_SimpleNewFromData(view_ndims, view_dims,
+        NPY_FLOAT32, (void*)ret.data);
+    printf("Converting points to np array for return!\n");
+    view_dims[0] = squares.corners_length;
+    view_dims[1] = 2;
+    PyObject* corners_view = PyArray_SimpleNewFromData(view_ndims, view_dims,
+        NPY_FLOAT32, (void*)squares.corners);
 
+    // Cleanup
+    Substrate_deinit(&src); 
+    Substrate_deinit(&edges); 
+    //Substrate_deinit(&erode); 
+    //Substrate_deinit(&ret); 
+    // Contours_deinit(&contours); // Purposefully leak and construct an array out of
+    // potentially deinit squares
 
-    return contours_view;
+    // Make a white line
+    for (size_t i = 0; i < 50; i++) {
+        *Substrate_getPixel(&ret, i, i) = 0.5f;
+    }
+
+    // Beware no error checking
+    PyObject* tuple = PyTuple_New(2);
+    PyTuple_SetItem(tuple, 0, ret_view);
+    PyTuple_SetItem(tuple, 1, corners_view);
+    return tuple;
 }
 
 static PyObject* my_module_add(PyObject* self, PyObject* args) {
