@@ -5,11 +5,15 @@
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
+#include <float.h>
+#include <stdio.h>
 
-#define RADIUS_SQ 200.0f
+#define DIST_SAMPLE_RADIUS_SQ 200.0f
+#define MIN_CORNER_SEP_DIST_SQ 1000.0f
 #define MIN_CONTOUR_LENGTH 30
-#define MAX_CONTOUR_LENGTH 10000 // 40kib
+#define MAX_CONTOUR_LENGTH 10000 
 
+/// This is a misnomer it actually samples by density
 static float distanceSample(struct Contours const *contours,
                             struct Contour const* contour, size_t pi) {
     float average_dist = 0;
@@ -20,7 +24,7 @@ static float distanceSample(struct Contours const *contours,
             struct Point2d* test = &contours->points[tpi];
             float distance = distanceSqFlt(current->x, current->y,
                 test->x, test->y);
-            if (distance < RADIUS_SQ) {
+            if (distance < DIST_SAMPLE_RADIUS_SQ) {
                 average_dist += distance;
             }
         }
@@ -33,31 +37,60 @@ void Squares_initFromContours(struct Contours const* contours,
                               struct Squares *squares) {
     squares->corners_length = 0;
     for (size_t ci = 0; ci < contours->contours_length; ci++) {
+        // Get the current contour and verify it is valid
         puts("Beginning Contour ----------------------");
         struct Contour const* contour = &contours->contours[ci];
         if (contour->count < MIN_CONTOUR_LENGTH) continue;
         if (contour->count > MAX_CONTOUR_LENGTH) continue;
         if (!contour->is_closed) continue;
-        float distances[MAX_CONTOUR_LENGTH];
+
+        // Populate array of sample distances
+        float distances[MAX_CONTOUR_LENGTH]; //~40kib
         for (size_t pi = contour->start; pi - contour->start < contour->count;
             pi++) {
-            size_t li = pi - 1;
-            while (li < contour->start) li += contour->count;
-            size_t ni = contour->start +
-                (pi - contour->start + 1) % contour->count;
-            float last_dist = distanceSample(contours, contour, li);
-            float current_dist = distanceSample(contours, contour, pi);
-            float next_dist = distanceSample(contours, contour, ni);
-            bool meets_thresh = current_dist < 10.0f;
-            bool valley = last_dist >= current_dist &&
-                next_dist > current_dist;
-            printf("This is the avg dist %f %d\n", current_dist, valley);
-            if (valley & meets_thresh) {
-                printf("This is also a valley so we are adding it as a corner!\n");
-                memcpy(&squares->corners[squares->corners_length++],
-                        &contours->points[pi], sizeof(struct Point2d));
+            size_t i = pi - contour->start;
+            distances[i] = distanceSample(contours, contour, pi);
+        }
+
+        // Find sorted indices of best corner candidates
+        struct Square square;
+
+        for (size_t i = 0; i < 4; i++) {
+            float best_dist = FLT_MAX;
+            for (size_t di = 0; di < contour->count; di++) {
+                // Get the current point
+                size_t pi = di + contour->start;
+                struct Point2d* current_pt = &contours->points[pi];
+
+                // Skip this point if it is too close to an already picked point
+                bool is_too_close_to_existant_pt = false;
+                for (size_t j = 0; j < i; j++) {
+                    struct Point2d* existent_pt = &square.points[j];
+                    float dist_to_existent_pt =
+                        distanceSqFlt(existent_pt->x, existent_pt->y,
+                                      current_pt->x, current_pt->y);
+                    if (dist_to_existent_pt < MIN_CORNER_SEP_DIST_SQ) {
+                        is_too_close_to_existant_pt = true;
+                        break;
+                    }
+                }
+                if (is_too_close_to_existant_pt) continue;
+
+                // Check if this is the best
+                float dist = distances[di];
+                if (dist < best_dist) {
+                    best_dist = dist;
+                    memcpy(&square.points[i], &contours->points[pi],
+                           sizeof(struct Square));
+                }
             }
         }
+        // Add the square corners we found
+        memcpy(&squares->corners[squares->corners_length],
+               &square.points, sizeof(struct Square));
+        squares->corners_length += 4;
+
+        // This is legacy cruft
         struct Point2d exemplar = {0.0f, 0.0f};
         memcpy(&squares->corners[squares->corners_length++],
                 &exemplar, sizeof exemplar);
