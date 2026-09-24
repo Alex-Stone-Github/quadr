@@ -11,8 +11,8 @@ print("I got this form quadr addition, ", quadr.add(2, 3))
 
 # Open up an image
 print("Opencv2 stuff & show and image")
-image = cv2.imread("image2.jpg")
-#image = cv2.imread("image.png")
+#image = cv2.imread("image2.jpg")
+image = cv2.imread("image.png")
 if image is None: sys.exit(-1)
 plt.imshow(image)
 plt.show()
