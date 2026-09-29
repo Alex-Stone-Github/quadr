@@ -116,8 +116,6 @@ void Contours_findContoursConsumeSubstrate(struct Contours *contours,
         }
         // Nothing to do, there are no more (free points) available
     }
-    printf("We have a total of %ld points and %ld contours!\n",
-        contours->points_length, contours->contours_length);
 }
 
 void Contours_deinit(struct Contours *contours) {

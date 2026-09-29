@@ -4,10 +4,7 @@ import numpy as np
 import cv2
 import sys
 import random
-import quadr
-
-# Test usage with the library
-print("I got this form quadr addition, ", quadr.add(2, 3))
+import fastqr
 
 # Open up an image
 print("Opencv2 stuff & show and image")
@@ -20,23 +17,22 @@ plt.show()
 # Call the library dd
 print(type(image))
 print(f"Calling the main shebang")
-outimage, corners = quadr.takeIn(image)
-print(f"I got back a np array with shape of {outimage.shape}")
+squares = fastqr.takeIn(image)
+print(f"I got back a np array with shape of {squares.shape}")
 
 
-colorout = cv2.cvtColor(outimage, cv2.COLOR_GRAY2RGB)
-color = (255, 0, 0)
 
 def random_color() -> typing.Tuple[float, float, float]:
-    return (random.random(), random.random(), random.random())
+    randchan = lambda : random.randint(0, 256)
+    return (randchan(), randchan(), randchan())
 
-for corner in corners:
-    x, y = corner
-    if x < 0.001 and y < 0.002:
-        color = random_color()
-    cv2.circle(colorout, (int(x), int(y)), 5, color, -1)
+for square in squares:
+    color = random_color()
+    for corner in square:
+        x, y = corner
+        cv2.circle(image, (int(x), int(y)), 5, color, -1)
 
-
-plt.imshow(colorout, cmap="gray")
+plt.imshow(image)
 plt.show()
-print(corners)
+
+

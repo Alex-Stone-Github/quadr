@@ -1,17 +1,18 @@
 from setuptools import setup, Extension
 import numpy
 
-quadr = Extension("quadr",
+quadr = Extension("fastqr.quadr",
                   sources = [
-                      "src/quadr/quadrmod.c",
-                      "src/quadr/kernel.c",
-                      "src/quadr/contour.c",
-                      "src/quadr/square.c",
+                      "fastqr/quadr/quadrmod.c",
+                      "fastqr/quadr/kernel.c",
+                      "fastqr/quadr/contour.c",
+                      "fastqr/quadr/square.c",
+                      "fastqr/quadr/pipe.c",
                   ],
                   include_dirs=[numpy.get_include()])
 
 setup(
-    name = "quadr",
+    name = "fastqr",
     version = "1.0",
     description = "Some rando desc",
     ext_modules = [quadr],

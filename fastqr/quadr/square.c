@@ -35,10 +35,9 @@ static float distanceSample(struct Contours const *contours,
 
 void Squares_initFromContours(struct Contours const* contours,
                               struct Squares *squares) {
-    squares->corners_length = 0;
+    squares->squares_length = 0;
     for (size_t ci = 0; ci < contours->contours_length; ci++) {
         // Get the current contour and verify it is valid
-        puts("Beginning Contour ----------------------");
         struct Contour const* contour = &contours->contours[ci];
         if (contour->count < MIN_CONTOUR_LENGTH) continue;
         if (contour->count > MAX_CONTOUR_LENGTH) continue;
@@ -86,14 +85,7 @@ void Squares_initFromContours(struct Contours const* contours,
             }
         }
         // Add the square corners we found
-        memcpy(&squares->corners[squares->corners_length],
-               &square.points, sizeof(struct Square));
-        squares->corners_length += 4;
-
-        // This is legacy cruft
-        struct Point2d exemplar = {0.0f, 0.0f};
-        memcpy(&squares->corners[squares->corners_length++],
-                &exemplar, sizeof exemplar);
-        puts("Ending Contour ----------------------");
+        memcpy(&squares->squares[squares->squares_length++],
+               &square, sizeof(struct Square));
     }
 }
