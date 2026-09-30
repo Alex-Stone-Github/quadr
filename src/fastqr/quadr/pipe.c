@@ -8,6 +8,8 @@ void QuadPipeline_init(size_t width, size_t height, struct QuadPipeline *pipe) {
     Substrate_init(width - 4, height - 4, &pipe->skely);
     Substrate_init(width - 4, height - 4, &pipe->or);
     Contours_initFromSubstrate(&pipe->src, &pipe->contours);
+    pipe->width = width;
+    pipe->height = height;
 }
 // Process the image
 void QuadPipeline_process(struct QuadPipeline *pipe,

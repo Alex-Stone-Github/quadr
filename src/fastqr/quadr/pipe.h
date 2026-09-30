@@ -4,6 +4,7 @@
 #include "kernel.h"
 #include "square.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -12,6 +13,7 @@ struct QuadPipeline {
     struct Substrate src, edges, skelx, skely, or;
     struct Contours contours;
     struct Squares squares;
+    size_t width, height;
 };
 void QuadPipeline_init(size_t width, size_t height, struct QuadPipeline* pipe);
 void QuadPipeline_process(struct QuadPipeline *pipe,
