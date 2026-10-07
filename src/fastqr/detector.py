@@ -2,16 +2,25 @@
 This file contains all of the detectors that can be used in fastqr
 """
 
+from dataclasses import dataclass 
+import numpy as np
 import typing
 import math
 import itertools
-import numpy as np
 
 from .squares import QuadDetector, Square, distance, angle_to, cvt_cords
 
+
+@dataclass
+class AprilTag:
+    corners: Square
+    binary: typing.List[bool]
+
+
 class AprilDetector(QuadDetector):
     """ This is a specification of a quad detector for detecting april tags """
-    def find_tags(self, image: np.array) -> typing.List[Point2d]:
+    def find_tags(self, image: np.array) -> typing.List[AprilTag]:
+        tags = []
         for square in self.find_squares(image):
             binary = []
             WIDTH_CELLS = 8
@@ -30,6 +39,5 @@ class AprilDetector(QuadDetector):
                     import cv2
                     cv2.circle(image, (pt.x, pt.y), 5, color, -1)
 
-            for v in binary:
-                print(1 if v else 0, end = "")
-            print()
+            tags.append(AprilTag(square, binary))
+        return tags

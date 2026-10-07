@@ -1,5 +1,7 @@
 # Quadr
 
+![Pasted Image](doc/title.png)
+
 This is a april tag / qrcode reader package for python, used as a learning
 project for c extensions. This project aims to be a somewhat high performance
 reader and is paired with *numpy* and *opencv*.
